@@ -146,8 +146,8 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
           <defs>
             {/* Background Grid Pattern */}
             <pattern id="canvas-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(38, 53, 84, 0.35)" strokeWidth="1" />
-              <circle cx="40" cy="40" r="1" fill="rgba(56, 189, 248, 0.2)" />
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" />
+              <circle cx="40" cy="40" r="1.5" fill="rgba(255, 255, 255, 0.1)" />
             </pattern>
 
             {/* Glowing filters for Nodes */}
@@ -203,10 +203,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                       y1={src.y}
                       x2={dst.x}
                       y2={dst.y}
-                      stroke="#10b981"
-                      strokeWidth={9}
-                      strokeOpacity={0.3}
-                      filter="url(#glow-emerald)"
+                      stroke="#00e5ff"
+                      strokeWidth={8}
+                      strokeOpacity={0.4}
+                      filter="url(#glow-cyan)"
                     />
                   )}
                   <line
@@ -214,10 +214,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                     y1={src.y}
                     x2={dst.x}
                     y2={dst.y}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
+                    stroke={strokeColor === '#10b981' ? '#00e5ff' : strokeColor === '#334e7a' ? '#cbd5e1' : strokeColor === '#3b82f6' ? '#cbd5e1' : strokeColor}
+                    strokeWidth={isInActivePath ? 3 : isCoreLink ? 2 : 1.5}
                     strokeDasharray={strokeDash}
-                    strokeOpacity={isFailed ? 0.6 : 0.95}
+                    strokeOpacity={isFailed ? 0.3 : 0.8}
                   />
                 </g>
               );
@@ -242,11 +242,11 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                     width="56"
                     height="22"
                     rx="4"
-                    fill="#0f172a"
-                    stroke={isFailed ? '#f43f5e' : isInActivePath ? '#10b981' : '#263554'}
-                    strokeWidth={isInActivePath ? 1.75 : 1}
+                    fill="#080B10"
+                    stroke={isFailed ? '#f43f5e' : isInActivePath ? '#00e5ff' : '#475569'}
+                    strokeWidth={isInActivePath ? 1.5 : 1}
                   />
-                  <text y="4" fill={isFailed ? '#f43f5e' : isInActivePath ? '#34d399' : '#38bdf8'} fontWeight={isInActivePath ? '700' : '500'}>
+                  <text y="4" fill={isFailed ? '#f43f5e' : isInActivePath ? '#00e5ff' : '#f8fafc'} fontWeight={isInActivePath ? '700' : '500'}>
                     cost: {edge.cost}
                   </text>
                 </g>
@@ -303,13 +303,13 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                   {/* Outer glow ring */}
                   <circle
                     r={radius}
-                    fill="#0f172a"
-                    stroke={strokeColor}
-                    strokeWidth={isCurrentPacketHop || isDroppedSource ? 3.5 : (isCoreHub || isSource || isDestination || isInActivePath) ? 2.5 : 2}
-                    filter={filterUrl}
+                    fill="#151c27"
+                    stroke={isCurrentPacketHop ? '#00e5ff' : isDroppedSource ? '#f43f5e' : '#f8fafc'}
+                    strokeWidth={isCurrentPacketHop || isDroppedSource ? 3 : 2}
+                    filter={filterUrl || 'url(#glow-cyan)'}
                   />
                   {/* Inner container */}
-                  <circle r={radius - 8} fill={isDroppedSource ? '#31141a' : isCurrentPacketHop ? '#133526' : isCoreHub ? '#1e1838' : isDestination ? '#142823' : '#141e33'} />
+                  <circle r={radius - 8} fill={isDroppedSource ? '#31141a' : isCurrentPacketHop ? '#00333d' : '#10151f'} />
 
                   {/* Icon representation */}
                   {isCoreHub ? (
@@ -332,11 +332,11 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                   )}
 
                   {/* Node Name Label */}
-                  <text y={radius + 16} textAnchor="middle" fill="#f8fafc" fontWeight="600" fontSize="13">
+                  <text y={radius + 16} textAnchor="middle" fill="#f8fafc" fontWeight="700" fontSize="13">
                     {node.name || node.id}
                   </text>
                   {/* Node IP / Role Subtext */}
-                  <text y={radius + 30} textAnchor="middle" fill={isInActivePath ? '#34d399' : '#64748b'} fontSize="10">
+                  <text y={radius + 30} textAnchor="middle" fill={isInActivePath ? '#00e5ff' : '#94a3b8'} fontSize="10">
                     {isInActivePath ? 'Dijkstra Hop' : (node.roleDescription || node.ipAddress)}
                   </text>
                 </g>
@@ -353,8 +353,8 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                 width="84"
                 height="22"
                 rx="11"
-                fill={activeTransmission?.status === 'dropped' ? '#f43f5e' : '#10b981'}
-                filter={activeTransmission?.status === 'dropped' ? 'url(#glow-rose)' : 'url(#glow-emerald)'}
+                fill={activeTransmission?.status === 'dropped' ? '#f43f5e' : activeTransmission?.status === 'delivered' ? '#10b981' : activeTransmission?.priority === 'high' ? '#fbbf24' : '#3b82f6'}
+                filter={activeTransmission?.status === 'dropped' ? 'url(#glow-rose)' : activeTransmission?.status === 'delivered' ? 'url(#glow-emerald)' : activeTransmission?.priority === 'high' ? 'url(#glow-amber)' : 'url(#glow-cyan)'}
               />
               <text x="0" y="3" textAnchor="middle" fill="#090e1a" fontWeight="800" fontSize="10" fontFamily="'JetBrains Mono', monospace">
                 {activeTransmission?.packetId || 'PKT'}

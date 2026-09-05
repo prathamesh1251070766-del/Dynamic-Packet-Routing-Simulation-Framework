@@ -15,7 +15,7 @@
    -------------------------------------------------------------------------- */
 .dashboard-header {
   height: var(--header-height);
-  background: linear-gradient(180deg, #111a2e 0%, #0d1424 100%);
+  background: linear-gradient(180deg, #131924 0%, #080B10 100%);
   border-bottom: 1px solid var(--border-default);
   padding: 0 24px;
   display: flex;
@@ -389,7 +389,7 @@
 
 .topology-card-header {
   padding: 12px 18px;
-  background: linear-gradient(180deg, #16223b 0%, #111a2f 100%);
+  background: linear-gradient(180deg, #151c27 0%, #080B10 100%);
   border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
@@ -458,7 +458,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #090e1a;
+  background: #080B10;
   min-height: 440px;
 }
 
@@ -509,7 +509,7 @@
 }
 
 .canvas-footer-bar {
-  background: #0d1527;
+  background: #080B10;
   border-top: 1px solid var(--border-subtle);
   padding: 8px 18px;
   display: flex;
@@ -650,7 +650,7 @@
 }
 
 .panel-header {
-  background: linear-gradient(180deg, #141f36 0%, #10192d 100%);
+  background: linear-gradient(180deg, #151c27 0%, #080B10 100%);
   border-bottom: 1px solid var(--border-subtle);
   padding: 10px 14px;
   display: flex;
@@ -790,7 +790,7 @@
 }
 
 .routing-table th {
-  background: #111a2f;
+  background: #080B10;
   color: var(--text-muted);
   font-weight: 600;
   font-size: 0.68rem;
