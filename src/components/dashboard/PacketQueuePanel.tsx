@@ -37,7 +37,7 @@ export const PacketQueuePanel: React.FC<PacketQueuePanelProps> = ({
           <span className="queue-counter-badge">
             {queueSize} {queueSize === 1 ? 'Packet' : 'Packets'}
           </span>
-          <span className="panel-badge badge-blue">FIFO Queue (O(1))</span>
+          <span className="panel-badge badge-blue">Min-Heap Priority Queue (O(log N))</span>
         </div>
       </div>
 
@@ -47,7 +47,7 @@ export const PacketQueuePanel: React.FC<PacketQueuePanelProps> = ({
           type="button"
           className="queue-action-btn btn-enqueue"
           onClick={onOpenSendModal}
-          title="Enqueue a new packet into the FIFO queue"
+          title="Insert a new packet into the Priority Queue"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -61,7 +61,7 @@ export const PacketQueuePanel: React.FC<PacketQueuePanelProps> = ({
           className="queue-action-btn btn-process"
           onClick={onProcessNext}
           disabled={queueSize === 0}
-          title="Process/dequeue the front packet (FIFO)"
+          title="Extract Min priority packet (Min-Heap)"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
             <polyline points="9 18 15 12 9 6" />
@@ -115,15 +115,15 @@ export const PacketQueuePanel: React.FC<PacketQueuePanelProps> = ({
               </div>
               <p className="empty-state-message">No packets in queue</p>
               <p className="empty-state-subtext">
-                Click <strong>"Enqueue"</strong> to add packets to the FIFO buffer.
+                Click <strong>"Enqueue"</strong> to insert packets into the Priority Queue.
               </p>
             </div>
           </div>
         ) : (
           <div className="queue-items-container">
             <div className="queue-flow-header">
-              <span className="flow-label front-label">⬅ FRONT (Next Out)</span>
-              <span className="flow-label rear-label">REAR (Last In) ⬅</span>
+              <span className="flow-label front-label">⬅ ROOT (Highest Priority)</span>
+              <span className="flow-label rear-label">HEAP LEAVES (Lower Priority) ⬅</span>
             </div>
 
             <div className="queue-cards-list">

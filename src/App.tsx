@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './App.css';
 
 import { Graph } from './dsa/Graph';
-import { Queue } from './dsa/Queue';
+import { PriorityQueue } from './dsa/PriorityQueue';
 import { DoublyLinkedList } from './dsa/DoublyLinkedList';
 import { calculateDijkstraShortestPath, buildRoutingHashTableForNode } from './dsa/Dijkstra';
 import type { Packet, PacketPriority, PacketHistoryItem } from './types/packet';
@@ -21,8 +21,8 @@ export const App: React.FC = () => {
   // 1. Real custom Graph data structure instance
   const [graph] = useState<Graph>(() => createSampleNetwork());
 
-  // 2. Real custom Queue data structure instance for FIFO packet ingestion
-  const [packetQueue] = useState<Queue<Packet>>(() => new Queue<Packet>());
+  // 2. Real custom PriorityQueue data structure instance for packet ingestion
+  const [packetQueue] = useState<PriorityQueue<Packet>>(() => new PriorityQueue<Packet>());
 
   // 3. Real custom Doubly Linked List data structure instance for packet history
   const [historyList] = useState<DoublyLinkedList<PacketHistoryItem>>(
@@ -69,7 +69,7 @@ export const App: React.FC = () => {
   }, [graph]);
 
   /**
-   * Enqueues a newly generated packet into the custom FIFO Queue (O(1) at rear)
+   * Inserts a newly generated packet into the custom Priority Queue (Min-Heap, O(log N))
    */
   const handleEnqueuePacket = (data: {
     source: string;
@@ -93,11 +93,12 @@ export const App: React.FC = () => {
       sizeBytes: data.sizeBytes
     };
 
-    // 1. Pure custom Queue FIFO operation
-    packetQueue.enqueue(newPacket);
+    // 1. Min-Heap insertion (lower number = higher priority)
+    const priorityScore = 4 - data.priority;
+    packetQueue.insert(newPacket, priorityScore);
 
     // 2. Sync UI state
-    setQueuedPackets(packetQueue.toArray());
+    setQueuedPackets(packetQueue.toArray().map(node => node.element));
     setPacketCounter((prev) => prev + 1);
     setTotalPacketsSent((prev) => prev + 1);
   };
@@ -107,11 +108,11 @@ export const App: React.FC = () => {
    * Leverages Hash Table O(1) route lookup when applicable, combined with Dijkstra's algorithm.
    */
   const handleProcessNext = () => {
-    // 1. Dequeue from FIFO Queue (O(1) from head)
-    const dequeuedPacket = packetQueue.dequeue();
+    // 1. Extract Min from Priority Queue (O(log N))
+    const dequeuedPacket = packetQueue.extractMin();
     if (!dequeuedPacket) return;
 
-    setQueuedPackets(packetQueue.toArray());
+    setQueuedPackets(packetQueue.toArray().map(node => node.element));
 
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
@@ -265,7 +266,7 @@ export const App: React.FC = () => {
   };
 
   /**
-   * Clears the FIFO Queue
+   * Clears the Priority Queue
    */
   const handleClearQueue = () => {
     packetQueue.clear();
@@ -334,7 +335,7 @@ export const App: React.FC = () => {
 
         {/* E. BOTTOM DASHBOARD SECTION: 4 Information Panels */}
         <section className="dashboard-bottom-grid" aria-label="Simulation Status Panels">
-          {/* 1. Packet Queue (Powered by custom FIFO Queue DSA) */}
+          {/* 1. Packet Queue (Powered by custom Priority Queue DSA) */}
           <PacketQueuePanel
             packets={queuedPackets}
             onOpenSendModal={() => setIsSendModalOpen(true)}

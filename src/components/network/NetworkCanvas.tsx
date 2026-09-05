@@ -1,5 +1,6 @@
 import React from 'react';
 import { Graph, type NetworkNode, type NetworkEdge } from '../../dsa/Graph';
+import type { PacketPriority } from '../../types/packet';
 
 export interface ActiveTransmissionState {
   packetId: string;
@@ -12,6 +13,7 @@ export interface ActiveTransmissionState {
   totalCost?: number;
   routingAlgorithm?: string;
   reason?: string;
+  priority?: PacketPriority;
 }
 
 interface NetworkCanvasProps {
@@ -215,7 +217,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                     x2={dst.x}
                     y2={dst.y}
                     stroke={strokeColor === '#10b981' ? '#00e5ff' : strokeColor === '#334e7a' ? '#cbd5e1' : strokeColor === '#3b82f6' ? '#cbd5e1' : strokeColor}
-                    strokeWidth={isInActivePath ? 3 : isCoreLink ? 2 : 1.5}
+                    strokeWidth={strokeWidth}
                     strokeDasharray={strokeDash}
                     strokeOpacity={isFailed ? 0.3 : 0.8}
                   />
@@ -353,8 +355,8 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ graph, activeTrans
                 width="84"
                 height="22"
                 rx="11"
-                fill={activeTransmission?.status === 'dropped' ? '#f43f5e' : activeTransmission?.status === 'delivered' ? '#10b981' : activeTransmission?.priority === 'high' ? '#fbbf24' : '#3b82f6'}
-                filter={activeTransmission?.status === 'dropped' ? 'url(#glow-rose)' : activeTransmission?.status === 'delivered' ? 'url(#glow-emerald)' : activeTransmission?.priority === 'high' ? 'url(#glow-amber)' : 'url(#glow-cyan)'}
+                fill={activeTransmission?.status === 'dropped' ? '#f43f5e' : activeTransmission?.status === 'delivered' ? '#10b981' : activeTransmission?.priority === 2 || activeTransmission?.priority === 3 ? '#fbbf24' : '#3b82f6'}
+                filter={activeTransmission?.status === 'dropped' ? 'url(#glow-rose)' : activeTransmission?.status === 'delivered' ? 'url(#glow-emerald)' : activeTransmission?.priority === 2 || activeTransmission?.priority === 3 ? 'url(#glow-amber)' : 'url(#glow-cyan)'}
               />
               <text x="0" y="3" textAnchor="middle" fill="#090e1a" fontWeight="800" fontSize="10" fontFamily="'JetBrains Mono', monospace">
                 {activeTransmission?.packetId || 'PKT'}
