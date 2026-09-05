@@ -453,6 +453,12 @@
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.pill-purple {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--accent-purple);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 .canvas-wrapper {
   position: relative;
   flex: 1;
@@ -1153,6 +1159,8 @@
 .text-rose { color: var(--accent-rose); }
 
 .bg-emerald { background-color: var(--accent-emerald); }
+.bg-cyan { background-color: var(--accent-cyan); }
+.bg-indigo { background-color: var(--accent-indigo); }
 
 .mini-dot {
   display: inline-block;
