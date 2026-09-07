@@ -23,6 +23,12 @@ export interface ActiveTransmissionState {
 interface NetworkCanvasProps {
   graph: Graph;
   activeTransmission?: ActiveTransmissionState | null;
+  graphVersion?: number;
+  selectedNodeId?: string | null;
+  selectedEdge?: {from: string, to: string} | null;
+  onSelectNode?: (nodeId: string | null) => void;
+  onSelectEdge?: (edge: {from: string, to: string} | null) => void;
+  onNodePositionChange?: (nodeId: string, x: number, y: number) => void;
 }
 
 // ============================================================================
@@ -111,13 +117,23 @@ function computeFallbackPositions(
 export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
   graph,
   activeTransmission,
+  // @ts-ignore - graphVersion is only used to trigger re-renders
+  graphVersion,
+  selectedNodeId,
+  selectedEdge,
+  onSelectNode,
+  onSelectEdge,
+  onNodePositionChange
 }) => {
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const [draggingNode, setDraggingNode] = React.useState<string | null>(null);
+
   // ──────────────────────────────────────────────────────────────────────────
   // 1. READ EXCLUSIVELY FROM THE GRAPH DATA STRUCTURE (single source of truth)
   // ──────────────────────────────────────────────────────────────────────────
 
   /** All network nodes from the adjacency-list-backed Graph */
-  const nodes: NetworkNode[] = graph.getAllNodes();
+  const nodes = graph.getAllNodes();
 
   /**
    * All directed edges — used to determine bidirectionality.
@@ -196,6 +212,42 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
   // ──────────────────────────────────────────────────────────────────────────
   // RENDER
   // ──────────────────────────────────────────────────────────────────────────
+
+  const handlePointerDown = (e: React.PointerEvent, nodeId: string) => {
+    e.stopPropagation();
+    if (onSelectNode) onSelectNode(nodeId);
+    if (onSelectEdge) onSelectEdge(null);
+    setDraggingNode(nodeId);
+    (e.target as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!draggingNode || !svgRef.current || !onNodePositionChange) return;
+    const CTM = svgRef.current.getScreenCTM();
+    if (CTM) {
+      const x = (e.clientX - CTM.e) / CTM.a;
+      const y = (e.clientY - CTM.f) / CTM.d;
+      onNodePositionChange(draggingNode, x, y);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (draggingNode) {
+      (e.target as Element).releasePointerCapture(e.pointerId);
+      setDraggingNode(null);
+    }
+  };
+
+  const handleEdgeClick = (e: React.MouseEvent, from: string, to: string) => {
+    e.stopPropagation();
+    if (onSelectEdge) onSelectEdge({ from, to });
+    if (onSelectNode) onSelectNode(null);
+  };
+
+  const handleBackgroundClick = () => {
+    if (onSelectNode) onSelectNode(null);
+    if (onSelectEdge) onSelectEdge(null);
+  };
 
   return (
     <section className="network-topology-card">
@@ -295,7 +347,26 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
             All rendering is driven 100% by graph.getAllNodes() /
             graph.getAllEdges() — no hardcoded topology.
         ══════════════════════════════════════════════════════════════════ */}
-        <svg className="topology-svg-canvas" viewBox="0 0 800 460">
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          {nodes.length === 0 && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', pointerEvents: 'none' }}>
+              <svg viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" fill="none" strokeWidth="1" style={{ marginBottom: '16px', opacity: 0.5 }}>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#94a3b8' }}>Empty Network Graph</h3>
+              <p style={{ fontSize: '14px', marginTop: '8px' }}>Use the Left Sidebar controls to add Routers, Devices, and Connections.</p>
+            </div>
+          )}
+          <svg 
+            ref={svgRef}
+            className="topology-svg-canvas" 
+            viewBox="0 0 800 460"
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onClick={handleBackgroundClick}
+          >
           <defs>
             {/* ── Grid Background Pattern ── */}
             <pattern
@@ -475,7 +546,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               const dst = getNodeCoord(edge.to);
               const isFailed = edge.status === 'failed';
               const isInActivePath = isEdgeInActivePath(edge.from, edge.to);
-              const bidir = isBidirectional(edge.from, edge.to);
+              const isSelected = selectedEdge?.from === edge.from && selectedEdge?.to === edge.to || selectedEdge?.from === edge.to && selectedEdge?.to === edge.from;
 
               // Detect if this is a core hub link by checking connected nodes
               const fromNode = graph.getNode(edge.from);
@@ -494,7 +565,9 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 : 'url(#arrow-normal)';
 
               // Determine stroke
-              const strokeColor = isFailed
+              const strokeColor = isSelected
+                ? '#fbbf24' // amber for selected
+                : isFailed
                 ? '#f43f5e'
                 : isInActivePath
                 ? '#00e5ff'
@@ -510,7 +583,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 ? 0.75
                 : 0.65;
 
-              const strokeWidth = isInActivePath ? 3 : isCoreLink ? 2.5 : 2;
+              const strokeWidth = isSelected ? 4 : isInActivePath ? 4 : isCoreLink ? 2.5 : 2;
               const strokeDash = isFailed
                 ? '4 4'
                 : isInActivePath
@@ -532,9 +605,13 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               const y2 = dst.y - uy * nodeRadius;
 
               return (
-                <g key={`edge-${edge.from}-${edge.to}`}>
-                  {/* Bidirectional reverse indicator (subtle secondary arrow) */}
-                  {bidir && !isFailed && (
+                <g 
+                  key={`${edge.from}-${edge.to}`} 
+                  onClick={(e) => handleEdgeClick(e, edge.from, edge.to)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Underlay glow for active Dijkstra shortest path link */}
+                  {isInActivePath && (
                     <line
                       x1={x1}
                       y1={y1}
@@ -593,6 +670,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 <g
                   key={`cost-${edge.from}-${edge.to}`}
                   transform={`translate(${midX + perpX}, ${midY + perpY})`}
+                  style={{ pointerEvents: 'none' }}
                 >
                   {/* Badge background */}
                   <rect
@@ -665,9 +743,12 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               const isDroppedSource =
                 activeTransmission?.status === 'dropped' &&
                 node.id === activeTransmission.source;
+              const isSelected = selectedNodeId === node.id;
 
               // ── Node stroke color ──────────────────────────────────
-              const strokeColor = isInactive
+              const strokeColor = isSelected
+                ? '#fbbf24'
+                : isInactive
                 ? '#64748b'
                 : isDroppedSource
                 ? '#f43f5e'
@@ -761,6 +842,8 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                   transform={`translate(${coord.x}, ${coord.y})`}
                   className="node-group"
                   aria-label={`Node ${node.name || node.id}`}
+                  onPointerDown={(e) => handlePointerDown(e, node.id)}
+                  style={{ cursor: draggingNode === node.id ? 'grabbing' : 'grab' }}
                 >
                   {/* ── Outer glow ring ── */}
                   <circle
@@ -978,6 +1061,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
             </g>
           )}
         </svg>
+        </div>
 
         {/* ── Canvas Footer Bar (Graph statistics from live Graph state) ── */}
         <div className="canvas-footer-bar">

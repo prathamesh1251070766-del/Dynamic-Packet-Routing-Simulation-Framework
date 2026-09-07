@@ -15,6 +15,9 @@ interface LeftSidebarProps {
     lastLookupKey?: string;
     isHit?: boolean;
   };
+  onAddRouter?: () => void;
+  onAddDevice?: () => void;
+  onAddConnection?: () => void;
 }
 
 const DSA_STRUCTURES: DSAItem[] = [
@@ -84,7 +87,12 @@ const DSA_STRUCTURES: DSAItem[] = [
   }
 ];
 
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ hashTableStats }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
+  hashTableStats,
+  onAddRouter,
+  onAddDevice,
+  onAddConnection
+}) => {
   return (
     <aside className="sidebar left-sidebar">
       {/* SECTION 1: NETWORK CONTROLS */}
@@ -102,7 +110,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ hashTableStats }) => {
         </div>
 
         <div className="control-button-group">
-          <button className="control-btn" type="button" title="Add a routing node to topology">
+          <button className="control-btn" type="button" onClick={onAddRouter} title="Add a routing node to topology">
             <div className="btn-icon-box bg-cyan-subtle">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="9" />
@@ -116,7 +124,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ hashTableStats }) => {
             </div>
           </button>
 
-          <button className="control-btn" type="button" title="Add end-user terminal or server">
+          <button className="control-btn" type="button" onClick={onAddDevice} title="Add end-user terminal or server">
             <div className="btn-icon-box bg-emerald-subtle">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="4" width="20" height="12" rx="2" />
@@ -130,7 +138,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ hashTableStats }) => {
             </div>
           </button>
 
-          <button className="control-btn" type="button" title="Create weighted edge between nodes">
+          <button className="control-btn" type="button" onClick={onAddConnection} title="Create weighted edge between nodes">
             <div className="btn-icon-box bg-indigo-subtle">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="6" cy="6" r="3" />

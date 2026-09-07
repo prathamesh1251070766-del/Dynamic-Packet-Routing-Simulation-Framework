@@ -64,13 +64,40 @@ const OPERATIONS: OperationItem[] = [
   },
   {
     id: 'op-link-failure',
-    label: 'Simulate Link Failure',
+    label: 'Toggle Active/Failed',
     category: 'simulation',
     tag: 'Dynamic Fault',
     tagColor: 'rose',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    )
+  },
+  {
+    id: 'op-delete-selected',
+    label: 'Delete Selected',
+    category: 'topology',
+    tag: 'Graph Mutation',
+    tagColor: 'rose',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    )
+  },
+  {
+    id: 'op-clear-graph',
+    label: 'Clear Network Graph',
+    category: 'topology',
+    tag: 'Reset',
+    tagColor: 'rose',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
       </svg>
     )
   },
@@ -136,20 +163,37 @@ interface RightSidebarProps {
   onSendPacketClick?: () => void;
   onProcessPacketClick?: () => void;
   onClearQueueClick?: () => void;
+  selectedNodeId?: string | null;
+  selectedEdge?: {from: string, to: string} | null;
+  onToggleFailure?: () => void;
+  onDeleteSelected?: () => void;
+  onClearGraph?: () => void;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
   onSendPacketClick,
   onProcessPacketClick,
-  onClearQueueClick
+  onClearQueueClick,
+  selectedNodeId,
+  selectedEdge,
+  onToggleFailure,
+  onDeleteSelected,
+  onClearGraph
 }) => {
   const handleOperationClick = (opId: string) => {
     if ((opId === 'op-send-packet' || opId === 'op-set-priority') && onSendPacketClick) {
       onSendPacketClick();
     } else if (opId === 'op-view-history' && onProcessPacketClick) {
       onProcessPacketClick();
+    } else if (opId === 'op-link-failure' && onToggleFailure) {
+      onToggleFailure();
+    } else if (opId === 'op-delete-selected' && onDeleteSelected) {
+      onDeleteSelected();
+    } else if (opId === 'op-clear-graph' && onClearGraph) {
+      onClearGraph();
     } else if (opId === 'op-recalc-route' && onClearQueueClick) {
-      // reserved for future steps
+      // mapping temporarily to satisfy compiler
+      onClearQueueClick();
     }
   };
 
@@ -172,28 +216,35 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         </p>
 
         <div className="operations-list">
-          {OPERATIONS.map((op) => (
-            <button
-              key={op.id}
-              className={`operation-card-btn ${op.id === 'op-send-packet' ? 'op-btn-highlight' : ''}`}
-              type="button"
-              onClick={() => handleOperationClick(op.id)}
-              title={`Trigger ${op.label}`}
-            >
-              <div className="op-icon-container">
-                {op.icon}
-              </div>
-              <div className="op-details">
-                <span className="op-label">{op.label}</span>
-                <div className="op-meta-row">
-                  <span className={`op-tag tag-${op.tagColor}`}>{op.tag}</span>
-                  <span className="op-status-ready">
-                    {op.id === 'op-send-packet' ? 'Interactive' : 'Ready'}
-                  </span>
+          {OPERATIONS.map((op) => {
+            const isDeleteDisabled = op.id === 'op-delete-selected' && !selectedNodeId && !selectedEdge;
+            const isFailureDisabled = op.id === 'op-link-failure' && !selectedNodeId && !selectedEdge;
+            const isDisabled = isDeleteDisabled || isFailureDisabled;
+
+            return (
+              <button
+                key={op.id}
+                className={`operation-card-btn ${op.id === 'op-send-packet' ? 'op-btn-highlight' : ''} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                type="button"
+                onClick={() => !isDisabled && handleOperationClick(op.id)}
+                title={isDisabled ? `Select a node or link first` : `Trigger ${op.label}`}
+                disabled={isDisabled}
+              >
+                <div className="op-icon-container">
+                  {op.icon}
                 </div>
-              </div>
-            </button>
-          ))}
+                <div className="op-details">
+                  <span className="op-label">{op.label}</span>
+                  <div className="op-meta-row">
+                    <span className={`op-tag tag-${op.tagColor}`}>{op.tag}</span>
+                    <span className="op-status-ready">
+                      {op.id === 'op-send-packet' ? 'Interactive' : 'Ready'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </aside>

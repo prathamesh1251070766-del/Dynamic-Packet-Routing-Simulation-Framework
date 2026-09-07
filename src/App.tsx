@@ -20,6 +20,11 @@ import { SendPacketModal } from './components/network/SendPacketModal';
 export const App: React.FC = () => {
   // 1. Real custom Graph data structure instance
   const [graph] = useState<Graph>(() => createSampleNetwork());
+  const [graphVersion, setGraphVersion] = useState<number>(0);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<{from: string, to: string} | null>(null);
+
+  const forceGraphUpdate = () => setGraphVersion(v => v + 1);
 
   // 2. Real custom PriorityQueue data structure instance for packet ingestion
   const [packetQueue] = useState<PriorityQueue<Packet>>(() => new PriorityQueue<Packet>());
@@ -65,8 +70,89 @@ export const App: React.FC = () => {
   }, [graph, routingTableSource]);
 
   const availableRouters = useMemo(() => {
+    // using graphVersion to trigger re-computation
     return graph.getAllNodes().map((n) => ({ id: n.id, name: n.name || n.id }));
-  }, [graph]);
+  }, [graph, graphVersion]);
+
+  // Phase 3 Handlers
+  const handleAddNode = (type: 'router' | 'device') => {
+    const id = prompt(`Enter ${type} ID (e.g., ${type === 'router' ? 'R6' : 'PC-2'}):`);
+    if (!id) return;
+    if (graph.hasNode(id)) {
+      alert('Node ID already exists.');
+      return;
+    }
+    const name = prompt(`Enter ${type} Name (optional):`) || id;
+    graph.addNode({
+      id,
+      name,
+      type,
+      ipAddress: `10.0.0.${Math.floor(Math.random() * 255)}`,
+      status: 'active',
+      position: { x: 400 + (Math.random() * 100 - 50), y: 230 + (Math.random() * 100 - 50) }
+    });
+    forceGraphUpdate();
+  };
+
+  const handleAddConnection = () => {
+    const from = prompt('Enter Source Node ID:');
+    if (!from || !graph.hasNode(from)) return alert('Invalid source node.');
+    const to = prompt('Enter Destination Node ID:');
+    if (!to || !graph.hasNode(to)) return alert('Invalid destination node.');
+    if (from === to) return alert('Cannot link a node to itself.');
+    if (graph.getEdge(from, to)) return alert('Connection already exists.');
+
+    const costStr = prompt('Enter Link Cost (e.g., 5):', '5');
+    const cost = parseInt(costStr || '5', 10);
+    graph.addEdge(from, to, { cost, status: 'active' }, true);
+    forceGraphUpdate();
+  };
+
+  const handleToggleFailure = () => {
+    if (selectedNodeId) {
+      const node = graph.getNode(selectedNodeId);
+      if (node) {
+        node.status = node.status === 'active' ? 'inactive' : 'active';
+        forceGraphUpdate();
+      }
+    } else if (selectedEdge) {
+      const edge = graph.getEdge(selectedEdge.from, selectedEdge.to);
+      if (edge) {
+        const newStatus = edge.status === 'active' ? 'failed' : 'active';
+        graph.updateLinkStatus(selectedEdge.from, selectedEdge.to, newStatus, true);
+        forceGraphUpdate();
+      }
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedNodeId) {
+      graph.removeNode(selectedNodeId);
+      setSelectedNodeId(null);
+      forceGraphUpdate();
+    } else if (selectedEdge) {
+      graph.removeEdge(selectedEdge.from, selectedEdge.to, true);
+      setSelectedEdge(null);
+      forceGraphUpdate();
+    }
+  };
+
+  const handleClearGraph = () => {
+    if (window.confirm('Are you sure you want to clear the entire network graph?')) {
+      graph.clear();
+      setSelectedNodeId(null);
+      setSelectedEdge(null);
+      forceGraphUpdate();
+    }
+  };
+
+  const handleNodePositionChange = (nodeId: string, x: number, y: number) => {
+    const node = graph.getNode(nodeId);
+    if (node) {
+      node.position = { x, y };
+      forceGraphUpdate();
+    }
+  };
 
   /**
    * Inserts a newly generated packet into the custom Priority Queue (Min-Heap, O(log N))
@@ -320,16 +406,33 @@ export const App: React.FC = () => {
               lastLookupKey: lastLookupTelemetry.lastLookupKey,
               isHit: lastLookupTelemetry.isHit
             }}
+            onAddRouter={() => handleAddNode('router')}
+            onAddDevice={() => handleAddNode('device')}
+            onAddConnection={handleAddConnection}
           />
 
           {/* C. CENTER MAIN AREA: Network Topology (Dijkstra Shortest Path Animation) */}
-          <NetworkCanvas graph={graph} activeTransmission={activeTransmission} />
+          <NetworkCanvas
+            graph={graph}
+            graphVersion={graphVersion}
+            activeTransmission={activeTransmission}
+            selectedNodeId={selectedNodeId}
+            selectedEdge={selectedEdge}
+            onSelectNode={setSelectedNodeId}
+            onSelectEdge={setSelectedEdge}
+            onNodePositionChange={handleNodePositionChange}
+          />
 
           {/* D. RIGHT SIDEBAR: Typical Operations */}
           <RightSidebar
             onSendPacketClick={() => setIsSendModalOpen(true)}
             onProcessPacketClick={handleProcessNext}
             onClearQueueClick={handleClearQueue}
+            selectedNodeId={selectedNodeId}
+            selectedEdge={selectedEdge}
+            onToggleFailure={handleToggleFailure}
+            onDeleteSelected={handleDeleteSelected}
+            onClearGraph={handleClearGraph}
           />
         </div>
 
