@@ -14,8 +14,8 @@ const OPERATIONS: OperationItem[] = [
     id: 'op-add-node',
     label: 'Add Router / Device',
     category: 'topology',
-    tag: 'Graph Mutation',
-    tagColor: 'cyan',
+    tag: 'Graph Node',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10" />
@@ -29,7 +29,7 @@ const OPERATIONS: OperationItem[] = [
     label: 'Add Link / Connection',
     category: 'topology',
     tag: 'Edge Weight',
-    tagColor: 'cyan',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -106,7 +106,7 @@ const OPERATIONS: OperationItem[] = [
     label: 'Recalculate Route',
     category: 'simulation',
     tag: 'Dijkstra / BFS',
-    tagColor: 'purple',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polyline points="23 4 23 10 17 10" />
@@ -119,8 +119,8 @@ const OPERATIONS: OperationItem[] = [
     id: 'op-view-table',
     label: 'View Routing Table',
     category: 'inspect',
-    tag: 'Hash Table',
-    tagColor: 'blue',
+    tag: 'Routing Table',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -134,8 +134,8 @@ const OPERATIONS: OperationItem[] = [
     id: 'op-view-history',
     label: 'View Packet History',
     category: 'inspect',
-    tag: 'Stack / Trace',
-    tagColor: 'blue',
+    tag: 'Timeline',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10" />
@@ -148,7 +148,7 @@ const OPERATIONS: OperationItem[] = [
     label: 'View Statistics',
     category: 'inspect',
     tag: 'Telemetry',
-    tagColor: 'blue',
+    tagColor: 'neutral',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <line x1="18" y1="20" x2="18" y2="10" />
@@ -163,6 +163,9 @@ interface RightSidebarProps {
   onSendPacketClick?: () => void;
   onProcessPacketClick?: () => void;
   onClearQueueClick?: () => void;
+  onOpenFailureModal?: () => void;
+  onAddNodeClick?: () => void;
+  onAddLinkClick?: () => void;
   selectedNodeId?: string | null;
   selectedEdge?: {from: string, to: string} | null;
   onToggleFailure?: () => void;
@@ -174,6 +177,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onSendPacketClick,
   onProcessPacketClick,
   onClearQueueClick,
+  onOpenFailureModal,
+  onAddNodeClick,
+  onAddLinkClick,
   selectedNodeId,
   selectedEdge,
   onToggleFailure,
@@ -181,18 +187,25 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onClearGraph
 }) => {
   const handleOperationClick = (opId: string) => {
-    if ((opId === 'op-send-packet' || opId === 'op-set-priority') && onSendPacketClick) {
+    if (opId === 'op-add-node' && onAddNodeClick) {
+      onAddNodeClick();
+    } else if (opId === 'op-add-link' && onAddLinkClick) {
+      onAddLinkClick();
+    } else if ((opId === 'op-send-packet' || opId === 'op-set-priority') && onSendPacketClick) {
       onSendPacketClick();
     } else if (opId === 'op-view-history' && onProcessPacketClick) {
       onProcessPacketClick();
-    } else if (opId === 'op-link-failure' && onToggleFailure) {
-      onToggleFailure();
+    } else if (opId === 'op-link-failure') {
+      if (selectedNodeId || selectedEdge) {
+        if (onToggleFailure) onToggleFailure();
+      } else if (onOpenFailureModal) {
+        onOpenFailureModal();
+      }
     } else if (opId === 'op-delete-selected' && onDeleteSelected) {
       onDeleteSelected();
     } else if (opId === 'op-clear-graph' && onClearGraph) {
       onClearGraph();
     } else if (opId === 'op-recalc-route' && onClearQueueClick) {
-      // mapping temporarily to satisfy compiler
       onClearQueueClick();
     }
   };
@@ -202,7 +215,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       <div className="sidebar-section">
         <div className="section-header">
           <div className="section-title-wrap">
-            <svg className="section-icon text-indigo" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="section-icon text-neutral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
@@ -212,13 +225,13 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
 
         <p className="operations-intro">
-          Operations interface (interactive execution ready for DSA hookup):
+          Operations interface for traffic execution and network analysis:
         </p>
 
         <div className="operations-list">
           {OPERATIONS.map((op) => {
             const isDeleteDisabled = op.id === 'op-delete-selected' && !selectedNodeId && !selectedEdge;
-            const isFailureDisabled = op.id === 'op-link-failure' && !selectedNodeId && !selectedEdge;
+            const isFailureDisabled = op.id === 'op-link-failure' && !selectedNodeId && !selectedEdge && !onOpenFailureModal;
             const isDisabled = isDeleteDisabled || isFailureDisabled;
 
             return (

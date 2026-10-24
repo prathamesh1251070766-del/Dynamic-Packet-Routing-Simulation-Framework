@@ -16,7 +16,7 @@ export const PacketHistoryPanel: React.FC<PacketHistoryPanelProps> = ({
     <div className="dashboard-panel history-panel-enhanced">
       <div className="panel-header">
         <div className="panel-title-wrap">
-          <svg className="panel-icon text-amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="panel-icon text-neutral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
@@ -24,7 +24,7 @@ export const PacketHistoryPanel: React.FC<PacketHistoryPanelProps> = ({
         </div>
         <div className="panel-header-badges">
           <span className="history-counter-badge">{count} Logged</span>
-          <span className="panel-badge badge-amber">Doubly Linked List + Stack</span>
+          <span className="panel-badge badge-neutral">Doubly Linked List + Stack</span>
         </div>
       </div>
 

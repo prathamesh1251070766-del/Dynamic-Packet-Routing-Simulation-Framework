@@ -1,5 +1,5 @@
 import React from 'react';
-import { Graph, type NetworkNode, type NetworkEdge } from '../../dsa/Graph';
+import { Graph, type NetworkNode, type NetworkEdge, type LinkStatus } from '../../dsa/Graph';
 import type { PacketPriority } from '../../types/packet';
 
 // ============================================================================
@@ -12,12 +12,13 @@ export interface ActiveTransmissionState {
   destination: string;
   path: string[];
   currentHopIndex: number;
-  status: 'transmitting' | 'delivered' | 'dropped';
+  status: 'transmitting' | 'delivered' | 'dropped' | 'rerouting';
   payload?: string;
   totalCost?: number;
   routingAlgorithm?: string;
   reason?: string;
   priority?: PacketPriority;
+  wasRerouted?: boolean;
 }
 
 interface NetworkCanvasProps {
@@ -29,6 +30,8 @@ interface NetworkCanvasProps {
   onSelectNode?: (nodeId: string | null) => void;
   onSelectEdge?: (edge: {from: string, to: string} | null) => void;
   onNodePositionChange?: (nodeId: string, x: number, y: number) => void;
+  onOpenFailureModal?: () => void;
+  onToggleLink?: (from: string, to: string, currentStatus: LinkStatus) => void;
 }
 
 // ============================================================================
@@ -123,7 +126,9 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
   selectedEdge,
   onSelectNode,
   onSelectEdge,
-  onNodePositionChange
+  onNodePositionChange,
+  onOpenFailureModal,
+  onToggleLink
 }) => {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [draggingNode, setDraggingNode] = React.useState<string | null>(null);
@@ -255,7 +260,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
       <div className="topology-card-header">
         <div className="topology-title-wrap">
           <svg
-            className="topology-header-icon text-cyan"
+            className="topology-header-icon text-neutral"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -270,21 +275,47 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
           <div>
             <h2 className="topology-title">NETWORK TOPOLOGY</h2>
             <span className="topology-subtitle">
-              Dijkstra Shortest-Path Visualization &amp; Mesh Canvas
+              Shortest-Path Visualization &amp; Mesh Canvas
             </span>
           </div>
         </div>
 
         <div className="topology-header-controls">
           <div className="topology-badge-group">
-            <span className="topology-pill pill-cyan">
+            <span className="topology-pill">
               {routerCount} {routerCount === 1 ? 'Router' : 'Routers'}
               {deviceCount > 0 ? ` + ${deviceCount} Devices` : ''}
             </span>
-            <span className="topology-pill pill-indigo">
+            <span className="topology-pill">
               {linkCount} {linkCount === 1 ? 'Bidirectional Link' : 'Bidirectional Links'}
             </span>
-            <span className="topology-pill pill-purple">Dijkstra Engine Active</span>
+            <span className="topology-pill pill-active">
+              <span className="mini-dot bg-emerald" /> Dijkstra Active
+            </span>
+            {onOpenFailureModal && (
+              <button
+                type="button"
+                className="topology-failure-btn"
+                onClick={onOpenFailureModal}
+                title="Open Link & Router Failure Simulator"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#f87171',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>⚡</span> Simulate Failure
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -300,7 +331,16 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 <span>
                   <strong>UNREACHABLE:</strong> {activeTransmission.packetId} (
                   {activeTransmission.source} ✖ {activeTransmission.destination}
-                  ) — No active path via Dijkstra
+                  ) — {activeTransmission.wasRerouted ? 'Reroute failed — ' : ''}No active path via Dijkstra
+                </span>
+              </div>
+            ) : activeTransmission.status === 'rerouting' ? (
+              <div className="banner-badge banner-rerouting" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(251, 191, 36, 0.08))', borderColor: '#f59e0b' }}>
+                <span className="pulse-indicator status-dot-inline" style={{ background: '#f59e0b', boxShadow: '0 0 8px #f59e0b' }} />
+                <span>
+                  <strong>⚡ REROUTING:</strong>{' '}
+                  {activeTransmission.packetId} — Link failure detected at hop{' '}
+                  {activeTransmission.path[activeTransmission.currentHopIndex]} | Recalculating Dijkstra...
                 </span>
               </div>
             ) : (
@@ -313,7 +353,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               >
                 <span className="pulse-indicator status-dot-inline" />
                 <span>
-                  <strong>DIJKSTRA OPTIMAL:</strong>{' '}
+                  <strong>{activeTransmission.wasRerouted ? 'DIJKSTRA REROUTED:' : 'DIJKSTRA OPTIMAL:'}</strong>{' '}
                   {activeTransmission.packetId} [{activeTransmission.source} ➜{' '}
                   {activeTransmission.destination}] | Route:{' '}
                   {activeTransmission.path.join(' ➔ ')} | Cost:{' '}
@@ -379,11 +419,11 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               <path
                 d="M 40 0 L 0 0 0 40"
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.045)"
+                stroke="rgba(255, 255, 255, 0.04)"
                 strokeWidth="0.8"
               />
               {/* Grid corner accent dots */}
-              <circle cx="0" cy="0" r="1" fill="rgba(56, 189, 248, 0.18)" />
+              <circle cx="0" cy="0" r="1" fill="rgba(255, 255, 255, 0.08)" />
             </pattern>
             <pattern
               id="canvas-grid-minor"
@@ -395,27 +435,13 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               <path
                 d="M 10 0 L 0 0 0 10"
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.018)"
+                stroke="rgba(255, 255, 255, 0.015)"
                 strokeWidth="0.5"
               />
             </pattern>
 
-            {/* ── SVG Glow Filters ── */}
-            <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+            {/* ── Status Glow Filters (Green for active, Red for error) ── */}
             <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id="glow-purple" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
@@ -423,21 +449,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               </feMerge>
             </filter>
             <filter id="glow-rose" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id="glow-blue" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id="glow-active-edge" x="-10%" y="-40%" width="120%" height="180%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -446,7 +458,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
 
             {/* ── Arrow Markers for Directed / Bidirectional Edges ── */}
 
-            {/* Standard inactive link arrow */}
+            {/* Standard inactive link arrow (light gray) */}
             <marker
               id="arrow-normal"
               markerWidth="8"
@@ -456,10 +468,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               orient="auto"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(148, 163, 184, 0.5)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="#a3a3a3" />
             </marker>
 
-            {/* Active path link arrow */}
+            {/* Active path link arrow (active green) */}
             <marker
               id="arrow-active"
               markerWidth="8"
@@ -469,10 +481,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               orient="auto"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="#00e5ff" />
+              <path d="M0,0 L0,6 L8,3 z" fill="#10b981" />
             </marker>
 
-            {/* Failed link arrow */}
+            {/* Failed link arrow (failed red) */}
             <marker
               id="arrow-failed"
               markerWidth="8"
@@ -482,10 +494,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               orient="auto"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(244, 63, 94, 0.5)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="#ef4444" />
             </marker>
 
-            {/* Core hub link arrow */}
+            {/* Core hub link arrow (light gray) */}
             <marker
               id="arrow-core"
               markerWidth="8"
@@ -495,7 +507,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               orient="auto"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(99, 102, 241, 0.7)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="#e5e5e5" />
             </marker>
 
             {/* Bidirectional reverse arrow */}
@@ -508,7 +520,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
               orient="auto-start-reverse"
               markerUnits="strokeWidth"
             >
-              <path d="M8,0 L8,6 L0,3 z" fill="rgba(148, 163, 184, 0.4)" />
+              <path d="M8,0 L8,6 L0,3 z" fill="#737373" />
             </marker>
           </defs>
 
@@ -530,10 +542,9 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                   y1={src.y}
                   x2={dst.x}
                   y2={dst.y}
-                  stroke="#00e5ff"
-                  strokeWidth={10}
+                  stroke="#10b981"
+                  strokeWidth={8}
                   strokeOpacity={0.25}
-                  filter="url(#glow-active-edge)"
                 />
               );
             })}
@@ -566,24 +577,24 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
 
               // Determine stroke
               const strokeColor = isSelected
-                ? '#fbbf24' // amber for selected
+                ? '#f59e0b' // amber for selected
                 : isFailed
-                ? '#f43f5e'
+                ? '#ef4444' // red for failed
                 : isInActivePath
-                ? '#00e5ff'
+                ? '#10b981' // green for active path
                 : isCoreLink
-                ? '#6366f1'
-                : '#334e7a';
+                ? '#e5e5e5' // crisp light-gray for core
+                : '#737373'; // soft gray for normal links
 
               const strokeOpacity = isFailed
                 ? 0.4
                 : isInActivePath
                 ? 1
                 : isCoreLink
-                ? 0.75
-                : 0.65;
+                ? 0.85
+                : 0.7;
 
-              const strokeWidth = isSelected ? 4 : isInActivePath ? 4 : isCoreLink ? 2.5 : 2;
+              const strokeWidth = isSelected ? 4 : isInActivePath ? 3.5 : isCoreLink ? 2.5 : 2;
               const strokeDash = isFailed
                 ? '4 4'
                 : isInActivePath
@@ -608,8 +619,28 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 <g 
                   key={`${edge.from}-${edge.to}`} 
                   onClick={(e) => handleEdgeClick(e, edge.from, edge.to)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleLink) {
+                      onToggleLink(edge.from, edge.to, edge.status);
+                    }
+                  }}
                   style={{ cursor: 'pointer' }}
                 >
+                  <title>
+                    {isFailed
+                      ? `Link ${edge.from} ⟷ ${edge.to} is FAILED. Double-click to restore.`
+                      : `Link ${edge.from} ⟷ ${edge.to} is ACTIVE (cost ${edge.cost}). Double-click to sever.`}
+                  </title>
+                  {/* Invisible broad stroke for effortless click/double-click hit testing */}
+                  <line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="transparent"
+                    strokeWidth={16}
+                  />
                   {/* Underlay glow for active Dijkstra shortest path link */}
                   {isInActivePath && (
                     <line
@@ -617,9 +648,9 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                       y1={y1}
                       x2={x2}
                       y2={y2}
-                      stroke={isInActivePath ? '#38bdf8' : '#263554'}
+                      stroke="#10b981"
                       strokeWidth={strokeWidth - 0.5}
-                      strokeOpacity={isInActivePath ? 0.45 : 0.35}
+                      strokeOpacity={0.4}
                       strokeDasharray={isCoreLink ? 'none' : strokeDash}
                       markerStart="url(#arrow-bidir-start)"
                     />
@@ -679,13 +710,13 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                     width="56"
                     height="22"
                     rx="5"
-                    fill="#080B10"
+                    fill="#151515"
                     stroke={
                       isFailed
-                        ? '#f43f5e'
+                        ? '#ef4444'
                         : isInActivePath
-                        ? '#00e5ff'
-                        : '#263554'
+                        ? '#10b981'
+                        : '#333333'
                     }
                     strokeWidth={isInActivePath ? 1.5 : 0.8}
                   />
@@ -696,7 +727,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                       x="0"
                       textAnchor="middle"
                       fontSize="7"
-                      fill={isInActivePath ? '#38bdf8' : '#475569'}
+                      fill={isInActivePath ? '#10b981' : '#737373'}
                       fontWeight="600"
                     >
                       ⇄
@@ -707,10 +738,10 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                     y="4"
                     fill={
                       isFailed
-                        ? '#f43f5e'
+                        ? '#ef4444'
                         : isInActivePath
-                        ? '#00e5ff'
-                        : '#94a3b8'
+                        ? '#10b981'
+                        : '#e5e5e5'
                     }
                     fontWeight={isInActivePath ? '700' : '500'}
                   >
@@ -747,59 +778,51 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
 
               // ── Node stroke color ──────────────────────────────────
               const strokeColor = isSelected
-                ? '#fbbf24'
+                ? '#f59e0b'
                 : isInactive
-                ? '#64748b'
+                ? '#525252'
                 : isDroppedSource
-                ? '#f43f5e'
+                ? '#ef4444'
                 : isCurrentPacketHop
-                ? '#00e5ff'
+                ? '#10b981'
                 : isInActivePath
-                ? '#34d399'
+                ? '#10b981'
                 : isSource
-                ? '#38bdf8'
+                ? '#ffffff'
                 : isDestination
                 ? '#10b981'
                 : isCoreHub
-                ? '#a855f7'
+                ? '#e5e5e5'
                 : isDevice
-                ? '#fbbf24'
-                : '#3b82f6';
+                ? '#d4d4d4'
+                : '#a3a3a3';
 
               // ── Glow filter ────────────────────────────────────────
               const filterUrl = isDroppedSource
                 ? 'url(#glow-rose)'
-                : isCurrentPacketHop
+                : isCurrentPacketHop || isInActivePath
                 ? 'url(#glow-emerald)'
-                : isInActivePath
-                ? 'url(#glow-cyan)'
-                : isSource
-                ? 'url(#glow-cyan)'
-                : isDestination
-                ? 'url(#glow-emerald)'
-                : isCoreHub
-                ? 'url(#glow-purple)'
-                : 'url(#glow-blue)';
+                : undefined;
 
               // ── Node sizing by role ────────────────────────────────
               const radius = isCoreHub ? 36 : isSource || isDestination ? 34 : 32;
 
               // ── Inner fill color by state ──────────────────────────
               const innerFill = isDroppedSource
-                ? '#31141a'
+                ? '#280c12'
                 : isCurrentPacketHop
-                ? '#003340'
+                ? '#0a241a'
                 : isInActivePath
-                ? '#001c26'
-                : '#10151f';
+                ? '#0c1c14'
+                : '#151515';
 
               // ── Outer ring stroke ──────────────────────────────────
               const outerStroke = isCurrentPacketHop
-                ? '#00e5ff'
+                ? '#10b981'
                 : isDroppedSource
-                ? '#f43f5e'
+                ? '#ef4444'
                 : isInactive
-                ? '#475569'
+                ? '#525252'
                 : strokeColor;
 
               const outerStrokeWidth =
@@ -816,25 +839,17 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 ? 'DEV'
                 : 'RTR';
 
-              const roleBadgeFill = isSource
-                ? 'rgba(56,189,248,0.15)'
-                : isDestination
+              const roleBadgeFill = isDestination
                 ? 'rgba(16,185,129,0.15)'
-                : isCoreHub
-                ? 'rgba(168,85,247,0.15)'
-                : isDevice
-                ? 'rgba(251,191,36,0.15)'
-                : 'rgba(59,130,246,0.15)';
+                : isSource
+                ? 'rgba(255,255,255,0.1)'
+                : 'rgba(255,255,255,0.06)';
 
-              const roleBadgeStroke = isSource
-                ? 'rgba(56,189,248,0.5)'
-                : isDestination
+              const roleBadgeStroke = isDestination
                 ? 'rgba(16,185,129,0.5)'
-                : isCoreHub
-                ? 'rgba(168,85,247,0.5)'
-                : isDevice
-                ? 'rgba(251,191,36,0.5)'
-                : 'rgba(59,130,246,0.5)';
+                : isSource
+                ? 'rgba(255,255,255,0.3)'
+                : '#333333';
 
               return (
                 <g
@@ -848,7 +863,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                   {/* ── Outer glow ring ── */}
                   <circle
                     r={radius}
-                    fill="#10151f"
+                    fill="#0d0d0d"
                     stroke={outerStroke}
                     strokeWidth={outerStrokeWidth}
                     filter={filterUrl}
@@ -869,11 +884,11 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                       <polygon
                         points="0,-10 9,-5 9,5 0,10 -9,5 -9,-5"
                         fill="none"
-                        stroke="#c084fc"
+                        stroke="#e5e5e5"
                         strokeWidth="1.5"
                         opacity={isInactive ? 0.4 : 1}
                       />
-                      <circle cx="0" cy="0" r="2" fill="#c084fc" opacity={isInactive ? 0.4 : 0.9} />
+                      <circle cx="0" cy="0" r="2" fill="#e5e5e5" opacity={isInactive ? 0.4 : 0.9} />
                     </>
                   ) : isDevice ? (
                     /* Monitor icon for devices */
@@ -968,7 +983,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                       textAnchor="middle"
                       fontSize="7"
                       fontWeight="700"
-                      fill={strokeColor}
+                      fill={isDestination ? '#10b981' : '#e5e5e5'}
                       fontFamily="'JetBrains Mono', monospace"
                     >
                       {roleBadge}
@@ -991,7 +1006,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                   <text
                     y={radius + 16}
                     textAnchor="middle"
-                    fill={isInactive ? '#475569' : '#f8fafc'}
+                    fill={isInactive ? '#525252' : '#ffffff'}
                     fontWeight="700"
                     fontSize="13"
                     fontFamily="'Inter', sans-serif"
@@ -1003,7 +1018,7 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                   <text
                     y={radius + 30}
                     textAnchor="middle"
-                    fill={isInActivePath ? '#00e5ff' : '#64748b'}
+                    fill={isInActivePath ? '#10b981' : '#a3a3a3'}
                     fontSize="10"
                     fontFamily="'JetBrains Mono', monospace"
                   >
@@ -1031,27 +1046,40 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 rx="11"
                 fill={
                   activeTransmission?.status === 'dropped'
-                    ? '#f43f5e'
+                    ? '#ef4444'
                     : activeTransmission?.status === 'delivered'
                     ? '#10b981'
+                    : activeTransmission?.status === 'rerouting'
+                    ? '#f59e0b'
+                    : activeTransmission?.wasRerouted
+                    ? '#fb923c'
                     : activeTransmission?.priority === 2 ||
                       activeTransmission?.priority === 3
-                    ? '#fbbf24'
-                    : '#3b82f6'
+                    ? '#f59e0b'
+                    : '#ffffff'
                 }
                 filter={
                   activeTransmission?.status === 'dropped'
                     ? 'url(#glow-rose)'
                     : activeTransmission?.status === 'delivered'
                     ? 'url(#glow-emerald)'
-                    : 'url(#glow-cyan)'
+                    : activeTransmission?.status === 'rerouting' || activeTransmission?.wasRerouted
+                    ? 'url(#glow-purple)'
+                    : undefined
                 }
               />
               <text
                 x="0"
                 y="3"
                 textAnchor="middle"
-                fill="#090e1a"
+                fill={
+                  activeTransmission?.status === 'dropped' ||
+                  activeTransmission?.status === 'delivered' ||
+                  activeTransmission?.status === 'rerouting' ||
+                  activeTransmission?.wasRerouted
+                    ? '#ffffff'
+                    : '#000000'
+                }
                 fontWeight="800"
                 fontSize="10"
                 fontFamily="'JetBrains Mono', monospace"
@@ -1066,13 +1094,13 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
         {/* ── Canvas Footer Bar (Graph statistics from live Graph state) ── */}
         <div className="canvas-footer-bar">
           <div className="canvas-stat">
-            <span className="stat-bullet bg-cyan" />
+            <span className="stat-bullet bg-emerald" />
             <span>
               Routing Core: <strong>Dijkstra (Binary Min-Heap)</strong>
             </span>
           </div>
           <div className="canvas-stat">
-            <span className="stat-bullet bg-indigo" />
+            <span className="stat-bullet bg-neutral" />
             <span>
               Total Vertices (|V|): <strong>{nodes.length}</strong> | Total Directed
               Edges: <strong>{allDirectedEdges.length}</strong>
@@ -1086,7 +1114,9 @@ export const NetworkCanvas: React.FC<NetworkCanvasProps> = ({
                 {activeTransmission
                   ? activeTransmission.status === 'dropped'
                     ? 'Unreachable'
-                    : `${activeTransmission.path.join(' ➔ ')} (Cost: ${
+                    : activeTransmission.status === 'rerouting'
+                    ? 'Rerouting — Recalculating Dijkstra...'
+                    : `${activeTransmission.wasRerouted ? '(Rerouted) ' : ''}${activeTransmission.path.join(' ➔ ')} (Cost: ${
                         activeTransmission.totalCost ?? 0
                       })`
                   : 'Ready'}

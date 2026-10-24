@@ -46,4 +46,5 @@ export interface PacketHistoryItem {
   failureReason?: string;
   stackTrace?: string[];         // LIFO hop trace recorded via Stack
   wasBacktracked?: boolean;      // True if Stack.pop() backtracking resolved route
+  wasRerouted?: boolean;         // True if mid-flight Dijkstra recalculation was triggered
 }
